@@ -204,7 +204,6 @@ class EGNN_encoder_QM9(nn.Module):
             h = torch.ones(bs*n_nodes, 1).to(self.device)
         else:
             h = xh[:, self.n_dims:].clone()
-
         if context is not None:
             # We're conditioning, awesome!
             context = context.view(bs*n_nodes, self.context_node_nf)
