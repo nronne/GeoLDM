@@ -9,6 +9,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import RadiusGraph, Distance
 from ase.optimize import BFGS
+from random import shuffle, seed
 
 class Converter:
     def __init__(self, radius: float = 4.5):
@@ -37,7 +38,10 @@ class Converter:
         positions = torch.Tensor(atoms.get_positions())
         cell = torch.Tensor(np.array(atoms.get_cell())).view(1, 3, 3)
         natoms = positions.shape[0]
-        y = torch.Tensor([atoms.get_potential_energy()])
+        try:
+            y = torch.Tensor([atoms.get_potential_energy()])
+        except:
+            y = torch.Tensor([0])
 
         # put the minimum data in torch geometric data object
         data = Data(
@@ -89,20 +93,20 @@ def get_atoms_data(N):
     #     atoms = Atoms('C' + str(n), positions=positions, cell=cell)
     #     atoms.calc = LennardJones()
     #     dyn = BFGS(atoms)
-    #     dyn.run(fmax=0.05)
+    #     dyn.run(fmax=0.05, steps=30)
     #     atoms.center()
     #     data.append(atoms)
     #     E = atoms.get_potential_energy()
         
-    # write('lj-data.traj', data)
-    data = read("lj-data.traj", index=f":{N}")
-    return data
+    # write('lj-data-2.traj', data)
+    data = read("lj-data.traj", index=":")
+    data += read("lj-data-2.traj", index=":")
+    seed(42)
+    shuffle(data)
+    return data[:N]
     
 def get_graph_data(N=30):
-
     data = get_atoms_data(N)
-
-
     a2g = Converter(radius=4.5)
     graphs = a2g.convert_all(data)
     
@@ -192,12 +196,12 @@ def get_test_graphs(N=30):
     return graphs
     
 
-def get_graph_dataloader(N=30, batch_size=32):
+def get_graph_dataloaders(N=30, batch_size=32):
     graphs = get_graph_data(N=N)
-    loader = DataLoader(graphs, batch_size=batch_size, shuffle=True)
-    return loader
+    idx1, idx2 = int(N * 0.75), int(N * 0.9)
+    train_loader = DataLoader(graphs[:idx1], batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(graphs[idx1:idx2], batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(graphs[idx2:], batch_size=batch_size, shuffle=True)
+    return train_loader, val_loader, test_loader
 
-if (__name__=="__main__"):
-    dataloader = get_graph_dataloader()
-    example = next(iter(dataloader))
-    print(example.pos)
+
